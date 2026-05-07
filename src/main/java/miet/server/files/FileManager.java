@@ -15,7 +15,9 @@ public class FileManager {
 
         try {
             path = Paths.get("uploads/" + originalName);
-            Files.createDirectory(Path.of("uploads"));
+            if (!Files.exists(Path.of("uploads"))){
+                Files.createDirectory(Path.of("uploads"));
+            }
             Files.createFile(path);
             Files.write(path, data);
         } catch (IOException e) {

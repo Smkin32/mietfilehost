@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="">
+<head>
+    <meta charset="UTF-8">
+    <title>MietFileHost – Панель управления</title>
+    <meta name="_csrf" th:content="${_csrf.token}"/>
+    <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="container mt-4">
+<h1>MietFileHost</h1>
+<div class="row">
+    <div class="col-md-4">
+        <div class="card text-bg-primary mb-3">
+            <div class="card-header">Пользователей (USER)</div>
+            <div class="card-body">
+                <h5 class="card-title" th:text="${totalUsers}">0</h5>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-bg-info mb-3">
+            <div class="card-header">Подключений (CLIENT)</div>
+            <div class="card-body">
+                <h5 class="card-title" th:text="${totalClients}">0</h5>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-bg-success mb-3">
+            <div class="card-header">API‑запросов за 24 ч</div>
+            <div class="card-body">
+                <h5 class="card-title" th:text="${totalRequests}">0</h5>
+            </div>
+        </div>
+    </div>
+</div>
+
+<h2>Подключения</h2>
+<button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#addConnectionModal">
+    Добавить подключение
+</button>
+
+<table class="table table-striped">
+    <thead>
+    <tr>
+        <th>ID</th>
+        <th>Имя пользователя</th>
+        <th>Действия</th>
+    </tr>
+    </thead>
+    <tbody id="connectionsTableBody">
+    <tr th:each="client : ${clients}" th:id="'row-' + ${client.id}">
+        <td th:text="${client.id}">1</td>
+        <td th:text="${client.username}">client_abc123</td>
+        <td>
+            <button class="btn btn-sm btn-warning" th:onclick="'resetPassword(' + ${client.id} + ')'">
+                Сбросить пароль
+            </button>
+            <button class="btn btn-sm btn-danger" th:onclick="'deleteConnection(' + ${client.id} + ')'">
+                Удалить
+            </button>
+        </td>
+    </tr>
+    </tbody>
+</table>
+
+<div class="modal fade" id="addConnectionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Новое подключение</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Нажмите «Сгенерировать», чтобы создать новое подключение.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="generateBtn">Сгенерировать</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="credentialsModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">Данные подключения</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Имя пользователя:</strong> <span id="genUsername"></span></p>
+                <p><strong>Пароль:</strong> <span id="genPassword"></span></p>
+                <div class="alert alert-warning">Сохраните пароль – он больше не будет показан!</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Закрыть</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    const csrfToken = document.querySelector('meta[name="_csrf"]').getAttribute('content');
+    const csrfHeader = document.querySelector('meta[name="_csrf_header"]').getAttribute('content');
+
+    const addConnectionModal = new bootstrap.Modal(document.getElementById('addConnectionModal'));
+    const credentialsModal = new bootstrap.Modal(document.getElementById('credentialsModal'));
+
+    document.getElementById('credentialsModal').addEventListener('hidden.bs.modal', function () {
+        document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
+        document.body.classList.remove('modal-open');
+        document.body.style.overflow = '';
+        document.body.style.paddingRight = '';
+    });
+
+    document.getElementById('generateBtn').addEventListener('click', async () => {
+        const response = await fetch('/api/admin/connections', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { [csrfHeader]: csrfToken }
+        });
+        if (response.ok) {
+            const data = await response.json();
+            document.getElementById('genUsername').textContent = data.username;
+            document.getElementById('genPassword').textContent = data.password;
+            addConnectionModal.hide();
+            credentialsModal.show();
+
+            const tbody = document.getElementById('connectionsTableBody');
+            const newRow = document.createElement('tr');
+            newRow.id = 'row-' + data.id;
+            newRow.innerHTML = `
+                    <td>${data.id}</td>
+                    <td>${data.username}</td>
+                    <td>
+                        <button class="btn btn-sm btn-warning" onclick="resetPassword(${data.id})">Сбросить пароль</button>
+                        <button class="btn btn-sm btn-danger" onclick="deleteConnection(${data.id})">Удалить</button>
+                    </td>
+                `;
+            tbody.appendChild(newRow);
+        } else {
+            alert('Не удалось создать подключение');
+        }
+    });
+
+    async function resetPassword(id) {
+        if (!confirm('Сбросить пароль для этого подключения?')) return;
+        const response = await fetch('/api/admin/connections/' + id + '/reset-password', {
+            method: 'PUT',
+            credentials: 'same-origin',
+            headers: { [csrfHeader]: csrfToken }
+        });
+        if (response.ok) {
+            const data = await response.json();
+            document.getElementById('genUsername').textContent = data.username;
+            document.getElementById('genPassword').textContent = data.password;
+            bootstrap.Modal.getInstance(document.getElementById('addConnectionModal'))?.hide();
+            credentialsModal.show();
+        } else {
+            alert('Не удалось сбросить пароль');
+        }
+    }
+
+    async function deleteConnection(id) {
+        if (!confirm('Удалить это подключение? Все его пользователи останутся, но клиент потеряет доступ.')) return;
+        const response = await fetch('/api/admin/connections/' + id, {
+            method: 'DELETE',
+            credentials: 'same-origin',
+            headers: { [csrfHeader]: csrfToken }
+        });
+        if (response.ok) {
+            const row = document.getElementById('row-' + id);
+            if (row) row.remove();
+        } else {
+            alert('Не удалось удалить подключение');
+        }
+    }
+</script>
+</body>
+</html>
