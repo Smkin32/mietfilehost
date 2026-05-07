@@ -11,10 +11,12 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final MinioService minioService;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder, MinioService minioService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.minioService = minioService;
     }
 
     public UserEntity findById(Long id) {
@@ -81,6 +83,8 @@ public class UserService {
         user.setPassword(passwordEncoder.encode(rawPassword));
         user.setRole("USER");
         UserEntity saved = userRepository.save(user);
+        String bucketName = "user-" + saved.getId();
+        minioService.ensureUserBucket(bucketName);
         saved.setRawPassword(rawPassword);
         return saved;
     }

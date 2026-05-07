@@ -1,5 +1,6 @@
 package miet.server.files;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +13,9 @@ public class DashboardWebController {
     private final UserService userService;
     private final ApiRequestCounter apiRequestCounter;
 
+    @Value("${minio.console-url}")
+    private String minioConsoleUrl;
+
     public DashboardWebController(UserService userService, ApiRequestCounter apiRequestCounter) {
         this.userService = userService;
         this.apiRequestCounter = apiRequestCounter;
@@ -23,6 +27,7 @@ public class DashboardWebController {
         model.addAttribute("totalClients", userService.countClients());
         model.addAttribute("totalRequests", apiRequestCounter.getTotalRequests());
         model.addAttribute("clients", userService.getAllClients());
+        model.addAttribute("minioConsoleUrl", minioConsoleUrl);
         return "dashboard";
     }
 }
